@@ -45,5 +45,8 @@ target_link_libraries(gen_test_tone PRIVATE rtp_wav rtp_core)
 add_executable(snr_harness tools/snr_harness.cpp)
 target_link_libraries(snr_harness PRIVATE rtp_codec rtp_core)
 
+add_executable(impair tools/impair.cpp)
+target_link_libraries(impair PRIVATE rtp_net rtp_core Threads::Threads)
+
 enable_testing()
 add_subdirectory(tests)

@@ -26,3 +26,18 @@ add_test(NAME udp_loopback_bit_identical
          COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/loopback_test.sh
                  $<TARGET_FILE:gen_test_tone> $<TARGET_FILE:rtp_sender> $<TARGET_FILE:rtp_receiver>)
 set_tests_properties(udp_loopback_bit_identical PROPERTIES TIMEOUT 30)
+
+set(IMPAIR_BINS $<TARGET_FILE:gen_test_tone> $<TARGET_FILE:rtp_sender>
+                 $<TARGET_FILE:rtp_receiver> $<TARGET_FILE:impair>)
+
+add_test(NAME impair_loss_1_0_drops_everything
+         COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/impair_loss_test.sh ${IMPAIR_BINS})
+set_tests_properties(impair_loss_1_0_drops_everything PROPERTIES TIMEOUT 30)
+
+add_test(NAME impair_loss_0_0_passthrough
+         COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/impair_passthrough_test.sh ${IMPAIR_BINS})
+set_tests_properties(impair_loss_0_0_passthrough PROPERTIES TIMEOUT 30)
+
+add_test(NAME impair_reorder_0_3_produces_reordering
+         COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/impair_reorder_test.sh ${IMPAIR_BINS})
+set_tests_properties(impair_reorder_0_3_produces_reordering PROPERTIES TIMEOUT 30)
