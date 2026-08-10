@@ -18,5 +18,20 @@ find_package(Threads REQUIRED)
 add_library(rtp_core INTERFACE)
 target_include_directories(rtp_core INTERFACE ${CMAKE_SOURCE_DIR}/include)
 
+add_library(rtp_wav STATIC src/wav.cpp)
+target_link_libraries(rtp_wav PUBLIC rtp_core)
+
+add_library(rtp_net STATIC src/udp_socket.cpp)
+target_link_libraries(rtp_net PUBLIC rtp_core)
+
+add_executable(rtp_sender src/sender.cpp)
+target_link_libraries(rtp_sender PRIVATE rtp_wav rtp_net rtp_core)
+
+add_executable(rtp_receiver src/receiver.cpp)
+target_link_libraries(rtp_receiver PRIVATE rtp_wav rtp_net rtp_core)
+
+add_executable(gen_test_tone tools/gen_test_tone.cpp)
+target_link_libraries(gen_test_tone PRIVATE rtp_wav rtp_core)
+
 enable_testing()
 add_subdirectory(tests)
