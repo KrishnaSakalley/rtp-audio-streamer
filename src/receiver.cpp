@@ -1,4 +1,5 @@
 #include "rtp/audio_format.hpp"
+#include "rtp/codec.hpp"
 #include "rtp/rtp_packet.hpp"
 #include "rtp/stats.hpp"
 #include "rtp/udp_socket.hpp"
@@ -54,8 +55,14 @@ int main(int argc, char** argv) {
     samples.reserve(static_cast<size_t>(rtp::audio::kSampleRateHz) * 60 * 10);
 
     rtp::stats::SequenceTracker tracker;
+    // ADPCM decode state is re-initialized from each packet's own header
+    // (see codec.hpp), so nothing here needs to survive a lost packet --
+    // this variable just holds scratch state for whichever packet is
+    // currently being decoded.
+    rtp::codec::AdpcmState adpcm_state;
     size_t malformed_dropped = 0;
     uint8_t buffer[rtp::net::kMaxDatagramBytes];
+    int16_t frame_out[rtp::audio::kFrameSamples];
 
     for (;;) {
       ssize_t n = socket.receive(buffer, sizeof(buffer));
@@ -71,17 +78,42 @@ int main(int argc, char** argv) {
 
       tracker.on_packet(parsed->header.sequence_number);
 
-      // Payload bytes are the sender's raw int16_t samples exactly as they
-      // sit in its memory (no network-order conversion -- RFC 3550 only
-      // mandates byte order for the header, PCM sample order is a codec
-      // concern). memcpy per sample avoids any alignment assumption about
-      // where the payload starts inside the datagram buffer.
-      size_t num_samples = parsed->payload_len / sizeof(int16_t);
-      samples.reserve(samples.size() + num_samples);
-      for (size_t i = 0; i < num_samples; ++i) {
-        int16_t sample;
-        std::memcpy(&sample, parsed->payload + i * sizeof(int16_t), sizeof(sample));
-        samples.push_back(sample);
+      if (parsed->header.payload_type == rtp::packet::kPayloadTypePcm) {
+        // Payload bytes are the sender's raw int16_t samples exactly as
+        // they sit in its memory (no network-order conversion -- RFC 3550
+        // only mandates byte order for the header). memcpy per sample
+        // avoids any alignment assumption about the payload's position
+        // inside the datagram buffer.
+        size_t num_samples = parsed->payload_len / sizeof(int16_t);
+        samples.reserve(samples.size() + num_samples);
+        for (size_t i = 0; i < num_samples; ++i) {
+          int16_t sample;
+          std::memcpy(&sample, parsed->payload + i * sizeof(int16_t), sizeof(sample));
+          samples.push_back(sample);
+        }
+      } else if (parsed->header.payload_type == rtp::packet::kPayloadTypePcmu) {
+        size_t num_samples = parsed->payload_len;
+        if (num_samples > rtp::audio::kFrameSamples) {
+          num_samples = rtp::audio::kFrameSamples;  // guard against a malformed oversized payload
+        }
+        rtp::codec::ulaw_decode_frame(parsed->payload, num_samples, frame_out);
+        samples.insert(samples.end(), frame_out, frame_out + num_samples);
+      } else if (parsed->header.payload_type == rtp::packet::kPayloadTypeAdpcm) {
+        if (parsed->payload_len < rtp::codec::kAdpcmStateHeaderBytes) {
+          malformed_dropped += 1;
+          continue;
+        }
+        adpcm_state = rtp::codec::unpack_adpcm_state(parsed->payload);
+        size_t packed_bytes = parsed->payload_len - rtp::codec::kAdpcmStateHeaderBytes;
+        size_t num_samples = packed_bytes * 2;
+        if (num_samples > rtp::audio::kFrameSamples) {
+          num_samples = rtp::audio::kFrameSamples;  // guard against a malformed oversized payload
+        }
+        rtp::codec::adpcm_decode_frame(parsed->payload + rtp::codec::kAdpcmStateHeaderBytes,
+                                        num_samples, adpcm_state, frame_out);
+        samples.insert(samples.end(), frame_out, frame_out + num_samples);
+      } else {
+        malformed_dropped += 1;
       }
     }
 

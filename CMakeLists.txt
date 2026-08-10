@@ -30,14 +30,20 @@ target_link_libraries(rtp_packet PUBLIC rtp_core)
 add_library(rtp_stats STATIC src/stats.cpp)
 target_link_libraries(rtp_stats PUBLIC rtp_core)
 
+add_library(rtp_codec STATIC src/codec_ulaw.cpp src/codec_adpcm.cpp)
+target_link_libraries(rtp_codec PUBLIC rtp_core)
+
 add_executable(rtp_sender src/sender.cpp)
-target_link_libraries(rtp_sender PRIVATE rtp_wav rtp_net rtp_packet rtp_core)
+target_link_libraries(rtp_sender PRIVATE rtp_wav rtp_net rtp_packet rtp_codec rtp_core)
 
 add_executable(rtp_receiver src/receiver.cpp)
-target_link_libraries(rtp_receiver PRIVATE rtp_wav rtp_net rtp_packet rtp_stats rtp_core)
+target_link_libraries(rtp_receiver PRIVATE rtp_wav rtp_net rtp_packet rtp_stats rtp_codec rtp_core)
 
 add_executable(gen_test_tone tools/gen_test_tone.cpp)
 target_link_libraries(gen_test_tone PRIVATE rtp_wav rtp_core)
+
+add_executable(snr_harness tools/snr_harness.cpp)
+target_link_libraries(snr_harness PRIVATE rtp_codec rtp_core)
 
 enable_testing()
 add_subdirectory(tests)
