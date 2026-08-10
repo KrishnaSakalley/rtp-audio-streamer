@@ -49,3 +49,20 @@ add_test(NAME jitter_buffer_unit COMMAND jitter_buffer_test)
 add_test(NAME impair_jitterbuffer_loss_reorder_jitter_gate
          COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/impair_jitterbuffer_test.sh ${IMPAIR_BINS})
 set_tests_properties(impair_jitterbuffer_loss_reorder_jitter_gate PROPERTIES TIMEOUT 60)
+
+add_executable(ring_buffer_test ring_buffer_test.cpp)
+target_link_libraries(ring_buffer_test PRIVATE rtp_core Threads::Threads)
+add_test(NAME ring_buffer_spsc_10m COMMAND ring_buffer_test)
+set_tests_properties(ring_buffer_spsc_10m PROPERTIES TIMEOUT 60)
+
+add_test(NAME underrun_free_60s_run
+         COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/underrun_test.sh
+                 $<TARGET_FILE:gen_test_tone> $<TARGET_FILE:rtp_sender> $<TARGET_FILE:rtp_receiver>)
+set_tests_properties(underrun_free_60s_run PROPERTIES TIMEOUT 90)
+
+if(RTP_ENABLE_TSAN)
+  add_test(NAME tsan_clean_threaded_pipeline
+           COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/tsan_pipeline_test.sh
+                   $<TARGET_FILE:gen_test_tone> $<TARGET_FILE:rtp_sender> $<TARGET_FILE:rtp_receiver>)
+  set_tests_properties(tsan_clean_threaded_pipeline PROPERTIES TIMEOUT 60)
+endif()

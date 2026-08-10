@@ -11,6 +11,16 @@ endif()
 
 add_compile_options(-Wall -Wextra -Werror)
 
+# ThreadSanitizer build for the Phase 6 GATE (PLAN.md §4): configure a
+# separate build directory with -DRTP_ENABLE_TSAN=ON to instrument every
+# target and exercise the threaded receiver for data races. Off by default
+# since TSan and the normal optimized build are mutually exclusive.
+option(RTP_ENABLE_TSAN "Build with ThreadSanitizer instrumentation" OFF)
+if(RTP_ENABLE_TSAN)
+  add_compile_options(-fsanitize=thread -g -O1)
+  add_link_options(-fsanitize=thread)
+endif()
+
 find_package(Threads REQUIRED)
 
 # Header-only interface target: every binary and test links against this to
@@ -40,7 +50,7 @@ add_executable(rtp_sender src/sender.cpp)
 target_link_libraries(rtp_sender PRIVATE rtp_wav rtp_net rtp_packet rtp_codec rtp_core)
 
 add_executable(rtp_receiver src/receiver.cpp)
-target_link_libraries(rtp_receiver PRIVATE rtp_wav rtp_net rtp_packet rtp_jitter rtp_core)
+target_link_libraries(rtp_receiver PRIVATE rtp_wav rtp_net rtp_packet rtp_jitter rtp_core Threads::Threads)
 
 add_executable(gen_test_tone tools/gen_test_tone.cpp)
 target_link_libraries(gen_test_tone PRIVATE rtp_wav rtp_core)
