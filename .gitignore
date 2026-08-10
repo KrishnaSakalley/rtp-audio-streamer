@@ -1,0 +1,14 @@
+build/
+build-*/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+*.o
+*.obj
+*.out
+*.log
+.cache/
+.vscode/
+.idea/
+.claude/settings.local.json
