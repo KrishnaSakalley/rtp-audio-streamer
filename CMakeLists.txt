@@ -24,11 +24,17 @@ target_link_libraries(rtp_wav PUBLIC rtp_core)
 add_library(rtp_net STATIC src/udp_socket.cpp)
 target_link_libraries(rtp_net PUBLIC rtp_core)
 
+add_library(rtp_packet STATIC src/rtp_packet.cpp)
+target_link_libraries(rtp_packet PUBLIC rtp_core)
+
+add_library(rtp_stats STATIC src/stats.cpp)
+target_link_libraries(rtp_stats PUBLIC rtp_core)
+
 add_executable(rtp_sender src/sender.cpp)
-target_link_libraries(rtp_sender PRIVATE rtp_wav rtp_net rtp_core)
+target_link_libraries(rtp_sender PRIVATE rtp_wav rtp_net rtp_packet rtp_core)
 
 add_executable(rtp_receiver src/receiver.cpp)
-target_link_libraries(rtp_receiver PRIVATE rtp_wav rtp_net rtp_core)
+target_link_libraries(rtp_receiver PRIVATE rtp_wav rtp_net rtp_packet rtp_stats rtp_core)
 
 add_executable(gen_test_tone tools/gen_test_tone.cpp)
 target_link_libraries(gen_test_tone PRIVATE rtp_wav rtp_core)
