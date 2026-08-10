@@ -1,13 +1,12 @@
 #include "rtp/audio_format.hpp"
-#include "rtp/codec.hpp"
+#include "rtp/jitter_buffer.hpp"
 #include "rtp/rtp_packet.hpp"
-#include "rtp/stats.hpp"
 #include "rtp/udp_socket.hpp"
 #include "rtp/wav.hpp"
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -17,6 +16,13 @@ namespace {
 void print_usage(const char* argv0) {
   std::fprintf(stderr, "usage: %s <output.wav> [--port P] [--idle-timeout-ms N]\n", argv0);
 }
+
+// Short enough that the playout clock below is serviced responsively even
+// when no packet is arriving. PLAN.md's precise clock_nanosleep-driven
+// playout thread (Phase 6) replaces this single-threaded polling loop with
+// an exact 20ms tick; this poll-and-check approach gets the jitter buffer's
+// deadline logic correct first, without that machinery.
+constexpr int kPollIntervalMs = 5;
 
 }  // namespace
 
@@ -45,7 +51,7 @@ int main(int argc, char** argv) {
   try {
     rtp::net::UdpSocket socket;
     socket.bind_to(port);
-    socket.set_receive_timeout(idle_timeout_ms);
+    socket.set_receive_timeout(kPollIntervalMs);
 
     // Reserve generously up front (10 minutes @ 8 kHz mono) so the common
     // case never reallocates mid-stream. This is file-mode groundwork, not
@@ -54,79 +60,67 @@ int main(int argc, char** argv) {
     std::vector<int16_t> samples;
     samples.reserve(static_cast<size_t>(rtp::audio::kSampleRateHz) * 60 * 10);
 
-    rtp::stats::SequenceTracker tracker;
-    // ADPCM decode state is re-initialized from each packet's own header
-    // (see codec.hpp), so nothing here needs to survive a lost packet --
-    // this variable just holds scratch state for whichever packet is
-    // currently being decoded.
-    rtp::codec::AdpcmState adpcm_state;
+    rtp::jitter::JitterBuffer jbuf;
     size_t malformed_dropped = 0;
+
+    auto process_start = std::chrono::steady_clock::now();
+    auto last_activity = process_start;
+
     uint8_t buffer[rtp::net::kMaxDatagramBytes];
-    int16_t frame_out[rtp::audio::kFrameSamples];
+    int16_t frame[rtp::audio::kFrameSamples];
 
     for (;;) {
       ssize_t n = socket.receive(buffer, sizeof(buffer));
-      if (n < 0) {
-        break;  // idle timeout: no packet for idle_timeout_ms, stream is done
-      }
+      auto now = std::chrono::steady_clock::now();
+      int64_t micros =
+          std::chrono::duration_cast<std::chrono::microseconds>(now - process_start).count();
+      uint32_t now_samples =
+          static_cast<uint32_t>(micros * rtp::audio::kSampleRateHz / 1000000);
 
-      auto parsed = rtp::packet::parse(buffer, static_cast<size_t>(n));
-      if (!parsed.has_value()) {
-        malformed_dropped += 1;
-        continue;
-      }
-
-      tracker.on_packet(parsed->header.sequence_number);
-
-      if (parsed->header.payload_type == rtp::packet::kPayloadTypePcm) {
-        // Payload bytes are the sender's raw int16_t samples exactly as
-        // they sit in its memory (no network-order conversion -- RFC 3550
-        // only mandates byte order for the header). memcpy per sample
-        // avoids any alignment assumption about the payload's position
-        // inside the datagram buffer.
-        size_t num_samples = parsed->payload_len / sizeof(int16_t);
-        samples.reserve(samples.size() + num_samples);
-        for (size_t i = 0; i < num_samples; ++i) {
-          int16_t sample;
-          std::memcpy(&sample, parsed->payload + i * sizeof(int16_t), sizeof(sample));
-          samples.push_back(sample);
-        }
-      } else if (parsed->header.payload_type == rtp::packet::kPayloadTypePcmu) {
-        size_t num_samples = parsed->payload_len;
-        if (num_samples > rtp::audio::kFrameSamples) {
-          num_samples = rtp::audio::kFrameSamples;  // guard against a malformed oversized payload
-        }
-        rtp::codec::ulaw_decode_frame(parsed->payload, num_samples, frame_out);
-        samples.insert(samples.end(), frame_out, frame_out + num_samples);
-      } else if (parsed->header.payload_type == rtp::packet::kPayloadTypeAdpcm) {
-        if (parsed->payload_len < rtp::codec::kAdpcmStateHeaderBytes) {
+      if (n >= 0) {
+        last_activity = now;
+        auto parsed = rtp::packet::parse(buffer, static_cast<size_t>(n));
+        if (parsed.has_value()) {
+          jbuf.push(parsed->header.sequence_number, parsed->header.timestamp,
+                    parsed->header.payload_type, parsed->payload, parsed->payload_len,
+                    now_samples);
+        } else {
           malformed_dropped += 1;
-          continue;
         }
-        adpcm_state = rtp::codec::unpack_adpcm_state(parsed->payload);
-        size_t packed_bytes = parsed->payload_len - rtp::codec::kAdpcmStateHeaderBytes;
-        size_t num_samples = packed_bytes * 2;
-        if (num_samples > rtp::audio::kFrameSamples) {
-          num_samples = rtp::audio::kFrameSamples;  // guard against a malformed oversized payload
-        }
-        rtp::codec::adpcm_decode_frame(parsed->payload + rtp::codec::kAdpcmStateHeaderBytes,
-                                        num_samples, adpcm_state, frame_out);
-        samples.insert(samples.end(), frame_out, frame_out + num_samples);
       } else {
-        malformed_dropped += 1;
+        auto idle_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - last_activity).count();
+        if (idle_ms > idle_timeout_ms) {
+          jbuf.mark_stream_ended();
+        }
+      }
+
+      while (jbuf.try_pull_due_frame(now_samples, frame)) {
+        samples.insert(samples.end(), frame, frame + rtp::audio::kFrameSamples);
+        if (jbuf.finished()) {
+          break;
+        }
+      }
+
+      if (jbuf.finished()) {
+        break;
       }
     }
 
     rtp::wav::write(output_path, rtp::audio::kSampleRateHz, samples);
 
-    const auto& counts = tracker.counts();
+    const auto& counts = jbuf.counts();
     std::fprintf(stderr,
-                 "wrote %zu samples to %s (received=%llu gaps=%llu reordered=%llu "
+                 "wrote %zu samples to %s (target_depth_ms=%d received=%llu lost=%llu "
+                 "late_dropped=%llu reordered=%llu concealed=%llu duplicate=%llu "
                  "malformed_dropped=%zu)\n",
-                 samples.size(), output_path.c_str(),
+                 samples.size(), output_path.c_str(), jbuf.target_depth_ms(),
                  static_cast<unsigned long long>(counts.received),
-                 static_cast<unsigned long long>(counts.gaps),
-                 static_cast<unsigned long long>(counts.reordered), malformed_dropped);
+                 static_cast<unsigned long long>(counts.lost),
+                 static_cast<unsigned long long>(counts.late_dropped),
+                 static_cast<unsigned long long>(counts.reordered),
+                 static_cast<unsigned long long>(counts.concealed),
+                 static_cast<unsigned long long>(counts.duplicate), malformed_dropped);
   } catch (const std::exception& e) {
     std::fprintf(stderr, "%s: %s\n", argv[0], e.what());
     return 1;

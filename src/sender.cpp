@@ -5,12 +5,14 @@
 #include "rtp/wav.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 namespace {
 
@@ -85,7 +87,22 @@ int main(int argc, char** argv) {
     size_t sent = 0;
     bool first_packet = true;
 
+    // Real audio capture produces one frame every 20ms; the receiver's
+    // jitter buffer schedules playout deadlines against real wall-clock
+    // time (PLAN.md Phase 5: "this is what makes it real-time"), so this
+    // has to actually pace itself rather than blast the whole file at once
+    // like Phases 1-4's pure file-to-file transport did. sleep_until with
+    // an absolute, monotonically-advancing deadline avoids the cumulative
+    // drift repeated sleep_for(20ms) calls would add (PLAN.md §9's
+    // "sleep_for drifts" warning, in miniature -- Phase 6's playout thread
+    // is where this gets the full clock_nanosleep/TIMER_ABSTIME treatment).
+    auto next_send_time = std::chrono::steady_clock::now();
+    const auto frame_period = std::chrono::milliseconds(rtp::audio::kFrameDurationMs);
+
     while (sent < total_samples) {
+      std::this_thread::sleep_until(next_send_time);
+      next_send_time += frame_period;
+
       size_t frame_samples =
           std::min(static_cast<size_t>(rtp::audio::kFrameSamples), total_samples - sent);
       const int16_t* frame = wav.samples.data() + sent;

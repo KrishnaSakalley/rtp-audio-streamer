@@ -41,3 +41,11 @@ set_tests_properties(impair_loss_0_0_passthrough PROPERTIES TIMEOUT 30)
 add_test(NAME impair_reorder_0_3_produces_reordering
          COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/impair_reorder_test.sh ${IMPAIR_BINS})
 set_tests_properties(impair_reorder_0_3_produces_reordering PROPERTIES TIMEOUT 30)
+
+add_executable(jitter_buffer_test jitter_buffer_test.cpp)
+target_link_libraries(jitter_buffer_test PRIVATE rtp_jitter rtp_packet rtp_core)
+add_test(NAME jitter_buffer_unit COMMAND jitter_buffer_test)
+
+add_test(NAME impair_jitterbuffer_loss_reorder_jitter_gate
+         COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/impair_jitterbuffer_test.sh ${IMPAIR_BINS})
+set_tests_properties(impair_jitterbuffer_loss_reorder_jitter_gate PROPERTIES TIMEOUT 60)
