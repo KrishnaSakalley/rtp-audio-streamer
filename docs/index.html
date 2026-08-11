@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RTP Audio Streaming Pipeline — Live Demo</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #12151d;
+    --border: #232838;
+    --text: #e6e9f0;
+    --muted: #9aa3b5;
+    --accent: #5eb0ff;
+    --accent-2: #7ee0b0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1 { font-size: 1.9rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-top: 0; margin-bottom: 32px; }
+  code { background: #1a1f2b; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  pre {
+    background: #1a1f2b;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+  }
+  section { margin-bottom: 40px; }
+  h2 {
+    font-size: 1.15rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    color: var(--accent);
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+  }
+  .card h3 { margin: 0 0 4px; font-size: 1rem; }
+  .card p { margin: 0 0 12px; color: var(--muted); font-size: 0.92rem; }
+  audio { width: 100%; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  a { color: var(--accent); }
+  .pill {
+    display: inline-block;
+    background: #16332a;
+    color: var(--accent-2);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+    margin-left: 8px;
+  }
+  footer { color: var(--muted); font-size: 0.85rem; margin-top: 48px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>RTP Audio Streaming Pipeline</h1>
+  <p class="subtitle">
+    A C++17 low-latency audio streamer built from scratch: RFC 3550 RTP packetisation,
+    G.711 mu-law &amp; IMA ADPCM codecs, an adaptive jitter buffer with packet loss
+    concealment, and a lock-free SPSC ring buffer feeding a threaded real-time playout
+    clock. No external RTP, DSP, or codec libraries.
+    <a href="https://github.com/KrishnaSakalley/rtp-audio-streamer">Source on GitHub</a>.
+  </p>
+
+  <section>
+    <h2>Listen</h2>
+
+    <div class="card">
+      <h3>Original <span class="pill">source</span></h3>
+      <p>Synthetic 440&nbsp;Hz tone, 4 seconds, 8&nbsp;kHz mono 16-bit PCM — the source
+        for every comparison below.</p>
+      <audio controls src="audio/original.wav"></audio>
+    </div>
+
+    <div class="card">
+      <h3>5% packet loss, concealment off <span class="pill">--no-plc</span></h3>
+      <p>Same network conditions as below (5% loss, 2% reorder, 30&nbsp;ms jitter), but
+        with packet loss concealment disabled — lost frames are silence.</p>
+      <audio controls src="audio/loss_5pct_concealment_off.wav"></audio>
+    </div>
+
+    <div class="card">
+      <h3>5% packet loss, concealment on</h3>
+      <p>Identical network conditions, with the jitter buffer's PLC enabled — lost
+        frames are a faded repeat of the last real frame instead of silence.</p>
+      <audio controls src="audio/loss_5pct_concealment_on.wav"></audio>
+    </div>
+
+    <div class="card">
+      <h3>IMA ADPCM round trip</h3>
+      <p>Full 4:1 encode/decode round trip through the hand-written ADPCM codec, no
+        network loss.</p>
+      <audio controls src="audio/adpcm_roundtrip.wav"></audio>
+    </div>
+  </section>
+
+  <section>
+    <h2>Metrics</h2>
+    <p style="color: var(--muted); font-size: 0.9rem; margin-top: -8px;">
+      Every number below comes from an actual pipeline run
+      (<code>scripts/generate_metrics.sh</code>), not a placeholder — see
+      <a href="https://github.com/KrishnaSakalley/rtp-audio-streamer/blob/main/docs/METRICS.md">docs/METRICS.md</a>
+      for the full table.
+    </p>
+    <table>
+      <tr><th>Metric</th><th>Value</th></tr>
+      <tr><td>End-to-end latency, median / p95</td><td>114.0 ms / 130.0 ms</td></tr>
+      <tr><td>Max survivable loss</td><td>5% (PCM, SNR &ge; 10 dB threshold)</td></tr>
+      <tr><td>Codec SNR (mu-law / ADPCM)</td><td>33.83 dB / 21.07 dB</td></tr>
+      <tr><td>Compression ratio (mu-law / ADPCM)</td><td>2:1 / 4:1</td></tr>
+      <tr><td>Jitter buffer depth, mean / p95</td><td>100.0 ms / 100.0 ms</td></tr>
+      <tr><td>CPU usage (3-thread receiver)</td><td>1%</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Try it</h2>
+    <pre><code>git clone https://github.com/KrishnaSakalley/rtp-audio-streamer.git
+cd rtp-audio-streamer
+cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build -j
+ctest --test-dir build --output-on-failure</code></pre>
+  </section>
+
+  <footer>
+    Built phase by phase per <code>PLAN.md</code>; see
+    <a href="https://github.com/KrishnaSakalley/rtp-audio-streamer/blob/main/docs/WALKTHROUGH.md">docs/WALKTHROUGH.md</a>
+    for a component-by-component design writeup and
+    <a href="https://github.com/KrishnaSakalley/rtp-audio-streamer/blob/main/docs/NOTES.md">docs/NOTES.md</a>
+    for the build log.
+  </footer>
+
+</div>
+</body>
+</html>

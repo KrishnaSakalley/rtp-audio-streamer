@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Loopback integration smoke test
+        run: |
+          ./build/gen_test_tone /tmp/ci_input.wav 2.0 440
+          ./build/rtp_receiver /tmp/ci_output.wav --port 5555 --idle-timeout-ms 800 &
+          RECV_PID=$!
+          sleep 0.3
+          ./build/rtp_sender /tmp/ci_input.wav --host 127.0.0.1 --port 5555 --codec pcm
+          wait "$RECV_PID"
+          cmp /tmp/ci_input.wav /tmp/ci_output.wav
+          echo "loopback bit-identical: OK"
+
+      - name: Upload loopback output WAV
+        uses: actions/upload-artifact@v4
+        with:
+          name: loopback-output-${{ matrix.compiler }}
+          path: /tmp/ci_output.wav
