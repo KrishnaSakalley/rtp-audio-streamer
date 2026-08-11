@@ -21,8 +21,8 @@ void SequenceTracker::on_packet(uint16_t sequence_number) {
   } else if (delta == 1) {
     last_sequence_ = sequence_number;
   } else if (delta == 0) {
-    // Duplicate packet -- not a gap or a reorder; Phase 5 gives this its own
-    // counter once the jitter buffer needs to act on it.
+    // Duplicate packet -- not a gap or a reorder. The jitter buffer tracks
+    // duplicates separately, since it's the component that acts on them.
   } else {
     counts_.reordered += 1;
     // Do not move last_sequence_ backward on a reorder: the highest

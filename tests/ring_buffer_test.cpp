@@ -39,7 +39,7 @@ void test_basic_correctness() {
   }
 }
 
-// SPSC stress test (PLAN.md Phase 6 GATE): two real threads move 10M items
+// SPSC stress test: two real threads move 10M items
 // through the ring; the consumer checks strict FIFO order, proving no item
 // is lost, duplicated, or reordered under genuine concurrent contention.
 void test_spsc_stress() {

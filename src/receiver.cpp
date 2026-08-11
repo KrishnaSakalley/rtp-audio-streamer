@@ -64,7 +64,7 @@ double percentile_int(std::vector<int> values, double p) {
 constexpr int kPollIntervalMs = 5;
 
 // Ring capacity between the playout thread and the main thread's WAV
-// writer: a power of two (PLAN.md Phase 6), sized to ~20s of audio at
+// writer: a power of two, sized to ~20s of audio at
 // 20ms/frame -- generous headroom, since the consumer here (a vector
 // insert) is far faster than the 20ms/frame production rate and should
 // never come close to filling it.
@@ -140,10 +140,10 @@ int main(int argc, char** argv) {
     // makes push() (receive thread) and try_pull_due_frame() /
     // mark_stream_ended() / finished() (playout thread) safe to call from
     // two different threads. The ring buffer below is the pipeline's one
-    // genuinely lock-free handoff (PLAN.md Phase 6); this cross-thread
-    // access to a plain stateful object is a plain mutex by design, not an
-    // oversight -- the plan's lock-free requirement is specifically the
-    // ring buffer.
+    // genuinely lock-free handoff; this cross-thread access to a large
+    // stateful object is a plain mutex by design, not an oversight -- the
+    // real-time constraint that motivates lock-free applies specifically to
+    // the playout thread's handoff downstream, not to this boundary.
     std::mutex jbuf_mutex;
 
     rtp::ring::SpscRingBuffer<AudioFrame, kRingCapacity> ring;
@@ -188,7 +188,7 @@ int main(int argc, char** argv) {
 
     // Playout thread: a fixed 20ms clock via clock_nanosleep(TIMER_ABSTIME)
     // against an absolute, monotonically-advancing deadline -- not
-    // sleep_for, which drifts (PLAN.md §9) -- pulling due frames from the
+    // sleep_for, which drifts -- pulling due frames from the
     // jitter buffer and handing them to the main thread through the
     // lock-free ring. This thread never allocates and never blocks on I/O;
     // that separation is the entire reason the ring buffer exists.

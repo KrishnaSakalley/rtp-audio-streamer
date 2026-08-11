@@ -1,9 +1,9 @@
-# Walkthrough
+# Design Walkthrough
 
-This is study material, written for someone reading the code after it was built, not
-during. Each section covers one component: what it does, the algorithm and its spec
-reference, why this design was chosen over the obvious alternative, the trade-off
-accepted, and the failure mode if the component is wrong.
+A component-by-component reference for anyone reading or extending this code. Each
+section covers one piece: what it does, the algorithm and its spec reference, why this
+design over the obvious alternative, the trade-off accepted, and the failure mode if the
+component is wrong.
 
 ## Architecture
 
@@ -220,9 +220,8 @@ rather than solved, since it's out of scope for a demo pipeline.
 **Failure mode.** If the trailing packet(s) of a stream are lost, the buffer has no way
 to know frames existed past the last one it saw — there's no length-of-stream signal in
 this wire format (real systems solve this with RTCP BYE or a session-layer protocol).
-The GATE integration test picks a duration where the impairment seed's loss pattern
-doesn't hit the last packet, rather than solving an out-of-scope session-teardown
-problem.
+The impairment integration test picks a duration where the seeded loss pattern doesn't
+hit the last packet, rather than solving an out-of-scope session-teardown problem.
 
 ## Packet loss concealment (part of `JitterBuffer`)
 
@@ -292,9 +291,10 @@ deadline means a late wake-up on one tick doesn't push the next tick later.
 **Why this design.** `JitterBuffer` itself has no internal synchronization (it's
 exercised single-threaded by its own unit tests) — a plain `std::mutex` guards it
 between the receive and playout threads. This is a deliberate choice, not an oversight:
-PLAN.md's lock-free requirement is specifically the ring buffer, and `JitterBuffer`'s
-per-call work is cheap enough that mutex contention is a non-issue, confirmed by a
-ThreadSanitizer run of the full threaded pipeline reporting no races.
+the real-time constraint that justifies a lock-free structure applies to the playout
+thread's *downstream* handoff, where a blocked producer would break the 20 ms cadence.
+`JitterBuffer`'s per-call work is cheap enough that mutex contention is a non-issue,
+confirmed by a ThreadSanitizer run of the full threaded pipeline reporting no races.
 
 **Trade-off.** The receive thread polls the socket with a 5 ms timeout rather than
 blocking indefinitely, purely so it stays responsive enough to notice idle timeouts and
@@ -313,10 +313,10 @@ actually late over the network, only late relative to a clock that had drifted.
 loss rates to populate `docs/METRICS.md` and generate the demo WAVs in `docs/audio/`.
 
 **Why this design.** Every number in `docs/METRICS.md` comes from an actual run: codec
-SNR from the Phase 3 harness, latency and jitter-buffer depth from
+SNR from `snr_harness`, latency and jitter-buffer depth from
 `JitterBuffer::Options::collect_stats` (an opt-in flag specifically so the default,
 zero-allocation hot path is unaffected by metrics collection), max survivable loss from
-a new `wav_snr` tool sweeping loss rates until reconstructed SNR drops below a 10 dB
+the `wav_snr` tool sweeping loss rates until reconstructed SNR drops below a 10 dB
 threshold, and CPU usage from wrapping the receiver (not the sender, which mostly
 sleeps between paced sends and reads near 0% regardless of pipeline health) in
 `/usr/bin/time -v`.

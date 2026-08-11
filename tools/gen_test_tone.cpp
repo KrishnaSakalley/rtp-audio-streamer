@@ -1,6 +1,7 @@
 // Synthesizes a mono sine-wave WAV file. Used as the correctness oracle for
-// loopback tests, the SNR test signal in Phase 3, and demo audio in Phase 7 --
-// synthetic and self-generated, so nothing here risks a copyright claim.
+// loopback tests, as the codec SNR test signal, and to generate the demo
+// audio -- synthetic and self-generated, so nothing here risks a copyright
+// claim.
 
 #include "rtp/audio_format.hpp"
 #include "rtp/wav.hpp"

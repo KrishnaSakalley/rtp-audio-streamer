@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GATE: --loss 1.0 must result in the receiver getting nothing at all.
+# Check: --loss 1.0 must result in the receiver getting nothing at all.
 set -euo pipefail
 
 GEN_TONE="$1"

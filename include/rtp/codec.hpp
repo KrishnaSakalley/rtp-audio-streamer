@@ -28,10 +28,10 @@ struct AdpcmState {
 void adpcm_encode_frame(const int16_t* pcm, size_t num_samples, AdpcmState& state, uint8_t* out);
 void adpcm_decode_frame(const uint8_t* packed, size_t num_samples, AdpcmState& state, int16_t* out);
 
-// PLAN.md requires ADPCM's predictor/step-index state travel explicitly in
-// every packet's payload (not just carried in memory), so that a lost
-// packet can't desynchronize the decoder for the rest of the stream: the
-// next packet that *does* arrive carries its own valid starting state.
+// ADPCM's predictor/step-index state travels explicitly in every packet's
+// payload (not just carried in memory), so that a lost packet can't
+// desynchronize the decoder for the rest of the stream: the next packet
+// that *does* arrive carries its own valid starting state.
 constexpr size_t kAdpcmStateHeaderBytes = 4;  // predictor (2B) + step_index (1B) + reserved (1B)
 
 void pack_adpcm_state(const AdpcmState& state, uint8_t out[kAdpcmStateHeaderBytes]);

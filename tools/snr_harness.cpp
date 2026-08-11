@@ -1,7 +1,7 @@
 // Round-trips a synthetic 1 kHz sine through a codec and reports SNR in dB.
-// This is the Phase 3 GATE (PLAN.md §4): mu-law must exceed 30 dB, ADPCM
-// must exceed 18 dB. Exits 0 if the threshold is met, 1 otherwise, so this
-// binary doubles as a CTest.
+// Acceptance thresholds: mu-law must exceed 30 dB, ADPCM must exceed 18 dB.
+// Exits 0 if the threshold is met, 1 otherwise, so this binary doubles as a
+// CTest.
 
 #include "rtp/audio_format.hpp"
 #include "rtp/codec.hpp"

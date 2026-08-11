@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 7 (PLAN.md §4/§8): runs the pipeline across a matrix of codecs and
+# Runs the pipeline across a matrix of codecs and
 # loss rates, writes docs/METRICS.md with real measured numbers, and emits
 # four demo WAVs into docs/audio/.
 set -euo pipefail

@@ -87,15 +87,14 @@ int main(int argc, char** argv) {
     size_t sent = 0;
     bool first_packet = true;
 
-    // Real audio capture produces one frame every 20ms; the receiver's
+    // Real audio capture produces one frame every 20ms, and the receiver's
     // jitter buffer schedules playout deadlines against real wall-clock
-    // time (PLAN.md Phase 5: "this is what makes it real-time"), so this
-    // has to actually pace itself rather than blast the whole file at once
-    // like Phases 1-4's pure file-to-file transport did. sleep_until with
-    // an absolute, monotonically-advancing deadline avoids the cumulative
-    // drift repeated sleep_for(20ms) calls would add (PLAN.md §9's
-    // "sleep_for drifts" warning, in miniature -- Phase 6's playout thread
-    // is where this gets the full clock_nanosleep/TIMER_ABSTIME treatment).
+    // time -- so the sender has to actually pace itself rather than blast
+    // the whole file at once, or those deadlines would be meaningless.
+    // sleep_until on an absolute, monotonically-advancing deadline avoids
+    // the cumulative drift that repeated sleep_for(20ms) calls would add
+    // (the receiver's playout thread does the same thing more precisely,
+    // with clock_nanosleep/TIMER_ABSTIME).
     auto next_send_time = std::chrono::steady_clock::now();
     const auto frame_period = std::chrono::milliseconds(rtp::audio::kFrameDurationMs);
 
@@ -137,8 +136,8 @@ int main(int argc, char** argv) {
 
       header.sequence_number = static_cast<uint16_t>(header.sequence_number + 1);
       // RTP timestamp advances by samples actually sent in this packet, not
-      // by milliseconds (PLAN.md §9) -- ordinarily kFrameSamples, but the
-      // final short frame of a file advances by less.
+      // by milliseconds -- ordinarily kFrameSamples, but the final short
+      // frame of a file advances by less.
       header.timestamp += static_cast<uint32_t>(frame_samples);
       sent += frame_samples;
     }

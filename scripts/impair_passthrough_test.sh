@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GATE: --loss 0.0 (and every other impairment off) must leave output unchanged.
+# Check: --loss 0.0 (and every other impairment off) must leave output unchanged.
 set -euo pipefail
 
 GEN_TONE="$1"

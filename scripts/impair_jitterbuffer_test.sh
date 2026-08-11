@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GATE (PLAN.md Phase 5): at --loss 0.05 --reorder 0.02 --jitter 30, the
+# Integration test: at --loss 0.05 --reorder 0.02 --jitter 30, the
 # output WAV must have the same sample count as the input (no gaps or
 # drift from PLC), and the jitter buffer's counters must be non-zero and
 # self-consistent.
@@ -21,7 +21,8 @@ RECV_LOG="$TMP/receiver.log"
 # 4 seconds = 200 frames: enough traffic for loss/reorder/jitter to all
 # fire at least once at these rates, and a duration chosen (with impair's
 # default seed) so the trailing packet survives -- a receiver fundamentally
-# cannot conceal a gap it has no evidence of (see docs/NOTES.md Phase 5).
+# cannot conceal a gap it has no evidence of, so losing the *last* packet
+# would legitimately truncate the output. See docs/WALKTHROUGH.md.
 "$GEN_TONE" "$INPUT" 4.0 440
 
 "$RECEIVER" "$OUTPUT" --port "$FORWARD_PORT" --idle-timeout-ms 800 2>"$RECV_LOG" &
@@ -85,4 +86,4 @@ if [ "$STORED" -lt 0 ]; then
   exit 1
 fi
 
-echo "jitter buffer GATE: received=$RECEIVED lost=$LOST late_dropped=$LATE_DROPPED reordered=$REORDERED concealed=$CONCEALED duplicate=$DUPLICATE -- OK"
+echo "jitter buffer check: received=$RECEIVED lost=$LOST late_dropped=$LATE_DROPPED reordered=$REORDERED concealed=$CONCEALED duplicate=$DUPLICATE -- OK"

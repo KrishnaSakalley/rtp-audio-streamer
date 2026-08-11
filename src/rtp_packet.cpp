@@ -11,10 +11,9 @@ namespace {
 // htons/htonl (RFC 3550's mandated network byte order) operate on the
 // integer *value*; memcpy'ing the 2/4-byte result into the wire buffer
 // copies its in-memory representation, which is exactly the big-endian
-// bytes we want. This is not the "memcpy a struct" mistake PLAN.md warns
-// about -- that referred to memcpy'ing RtpHeader itself, which has padding
-// between its bool/uint8_t/uint16_t/uint32_t fields that doesn't exist on
-// the wire.
+// bytes we want. Note this is memcpy'ing a *scalar*, which is safe --
+// memcpy'ing RtpHeader itself would not be, since it has padding between
+// its bool/uint8_t/uint16_t/uint32_t fields that doesn't exist on the wire.
 
 void write_u16(uint8_t* p, uint16_t host_value) {
   uint16_t net = htons(host_value);

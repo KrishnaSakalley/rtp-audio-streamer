@@ -6,8 +6,8 @@ namespace rtp::stats {
 
 // Tracks arrival order in RFC 3550's wrap-around sequence space (16-bit,
 // wraps at 65535 -> 0). A signed 16-bit delta orders sequence numbers
-// correctly across that wrap; `if (seq > last_seq)` does not, per PLAN.md
-// §9's "known traps" -- it misreads the wrap as a massive jump backward.
+// correctly across that wrap; `if (seq > last_seq)` does not -- it misreads
+// the wrap as a massive jump backward.
 class SequenceTracker {
  public:
   struct Counts {

@@ -93,12 +93,11 @@ difference is audible), and a full IMA ADPCM round trip.
 - **Real bugs, found and fixed, not hidden:** a nondeterministic reordering bug in the
   impairment tool's thread-per-packet forwarding, and a jitter buffer bug where playout
   could race arbitrarily far ahead of what any packet had actually proven exists. Both
-  are documented with root cause and fix in [docs/NOTES.md](docs/NOTES.md), and both
-  have regression tests.
+  are analysed in [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md), and both have regression
+  tests.
 - **Verified, not assumed:** a 10M-item two-thread stress test for the lock-free ring
   buffer, a ThreadSanitizer run of the full threaded pipeline, and a 60-second
-  zero-underrun run — see [docs/NOTES.md](docs/NOTES.md) for the phase-by-phase build
-  log.
+  zero-underrun run.
 
 ## License
 

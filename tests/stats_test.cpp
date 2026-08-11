@@ -38,7 +38,7 @@ int main() {
     RTP_CHECK(c.reordered == 1);
   }
 
-  // The critical edge case (PLAN.md §9): sequence wraps 65535 -> 0. A naive
+  // The critical edge case: sequence wraps 65535 -> 0. A naive
   // `seq > last_seq` comparison would misread this as a huge jump backward
   // and either explode the gap count or flag every subsequent packet as
   // reordered. The signed-delta tracker must see it as simple in-order flow.

@@ -51,7 +51,7 @@ void JitterBuffer::push(uint16_t sequence_number, uint32_t rtp_timestamp, uint8_
   }
 
   // Signed 16-bit delta orders sequence numbers correctly across the
-  // 65535 -> 0 wrap (PLAN.md §9), same technique as SequenceTracker.
+  // 65535 -> 0 wrap, same technique as SequenceTracker.
   int16_t frame_index_16 = static_cast<int16_t>(sequence_number - base_sequence_);
   int32_t frame_index = frame_index_16;
 

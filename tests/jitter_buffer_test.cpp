@@ -138,7 +138,7 @@ int main() {
   }
 
   // Four consecutive losses: first 3 fade progressively quieter, the 4th+
-  // is silence (PLAN.md §4's "cap at 3 concealments, then silence"). seq5
+  // is silence (the concealment cap is 3 frames, then silence). seq5
   // has to arrive so the buffer can infer seq1..4 were ever expected --
   // it can't conceal a gap it has no evidence of.
   {

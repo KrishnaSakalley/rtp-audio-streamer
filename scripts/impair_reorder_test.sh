@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GATE: --reorder 0.3 must demonstrably produce out-of-order sequence numbers
+# Check: --reorder 0.3 must demonstrably produce out-of-order sequence numbers
 # in the receiver's log (its SequenceTracker "reordered=" counter).
 set -euo pipefail
 

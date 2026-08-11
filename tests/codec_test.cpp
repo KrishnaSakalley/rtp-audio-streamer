@@ -66,7 +66,7 @@ int main() {
 
   // ADPCM: per-packet state carry. A packet's own header state must be
   // sufficient to decode it correctly even if every prior packet was lost --
-  // this is the mechanism PLAN.md requires so one loss doesn't desync the
+  // this is the mechanism that stops one loss from desyncing the
   // rest of the stream. Encode two frames back-to-back (state threaded
   // through), then decode frame 2 using only the state captured after
   // frame 1, simulating frame 1 never having arrived.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GATE (PLAN.md Phase 6): zero underruns over a 60-second run. "Underrun"
+# Check: zero underruns over a 60-second run. "Underrun"
 # here means the playout thread found the ring buffer full when handing off
 # a frame to the main thread -- with a 1024-slot ring (~20s of headroom)
 # draining into a plain vector insert, this should never happen.

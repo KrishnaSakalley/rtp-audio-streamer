@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs rtp_sender -> UDP -> rtp_receiver on a synthetic tone and asserts the
-# output WAV is byte-for-byte identical to the input -- the Phase 1 GATE in
-# PLAN.md. Invoked by CTest with absolute binary paths as $1/$2/$3.
+# output WAV is byte-for-byte identical to the input -- the core correctness
+# oracle for the whole pipeline. Invoked by CTest with absolute binary paths.
 set -euo pipefail
 
 GEN_TONE="$1"

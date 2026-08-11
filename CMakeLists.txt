@@ -11,10 +11,10 @@ endif()
 
 add_compile_options(-Wall -Wextra -Werror)
 
-# ThreadSanitizer build for the Phase 6 GATE (PLAN.md §4): configure a
-# separate build directory with -DRTP_ENABLE_TSAN=ON to instrument every
-# target and exercise the threaded receiver for data races. Off by default
-# since TSan and the normal optimized build are mutually exclusive.
+# ThreadSanitizer build: configure a separate build directory with
+# -DRTP_ENABLE_TSAN=ON to instrument every target and exercise the threaded
+# receiver for data races. Off by default since TSan and the normal
+# optimized build are mutually exclusive.
 option(RTP_ENABLE_TSAN "Build with ThreadSanitizer instrumentation" OFF)
 if(RTP_ENABLE_TSAN)
   add_compile_options(-fsanitize=thread -g -O1)

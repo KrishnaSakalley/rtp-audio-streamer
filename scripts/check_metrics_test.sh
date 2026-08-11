@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GATE (PLAN.md Phase 7): docs/METRICS.md exists with real numbers (no
+# Checks that docs/METRICS.md exists with real numbers (no
 # placeholders) and all four demo WAVs are present and non-trivial. Checks
 # the checked-in deliverable rather than re-running the (slow) generation
 # script on every ctest invocation.

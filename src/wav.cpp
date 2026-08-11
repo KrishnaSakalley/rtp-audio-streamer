@@ -11,7 +11,7 @@ namespace rtp::wav {
 namespace {
 
 // WAV/RIFF is little-endian on the wire regardless of host byte order
-// (unlike RTP, which PLAN.md fixes as big-endian) -- pack/unpack explicitly
+// (unlike RTP, which is big-endian) -- pack/unpack explicitly
 // rather than trusting host endianness or memcpy'ing a struct over padding.
 
 void write_u32le(std::FILE* f, uint32_t v) {

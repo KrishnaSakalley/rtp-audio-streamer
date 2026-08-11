@@ -9,10 +9,10 @@
 
 namespace rtp::jitter {
 
-// Fixed-capacity ring keyed on sequence number -- PLAN.md forbids allocation
-// on the audio path after startup. 32 slots comfortably covers the adaptive
-// target depth's whole range (kMaxTargetMs / 20ms per frame = 10 frames)
-// plus headroom for reordering and jitter spikes.
+// Fixed-capacity ring keyed on sequence number -- no allocation on the audio
+// path after startup. 32 slots comfortably covers the adaptive target
+// depth's whole range (kMaxTargetMs / 20ms per frame = 10 frames) plus
+// headroom for reordering and jitter spikes.
 constexpr size_t kCapacity = 32;
 
 // 100ms (5 frames) rather than a tighter value: this pipeline's sender
@@ -23,7 +23,7 @@ constexpr size_t kCapacity = 32;
 constexpr int kMinTargetMs = 100;
 constexpr int kMaxTargetMs = 200;  // cap added latency to stay conversational
 
-constexpr int kMaxConsecutiveConcealments = 3;  // PLAN.md §4: fade for 3, then silence
+constexpr int kMaxConsecutiveConcealments = 3;  // fade for 3 frames, then silence
 constexpr double kFadeDbPerConcealedFrame = -6.0;
 
 struct Counts {
@@ -44,7 +44,7 @@ class JitterBuffer {
  public:
   struct Options {
     // Records per-frame playout latency and target-depth history for
-    // offline analysis (Phase 7 metrics). Backed by a growable vector, so
+    // offline metrics analysis. Backed by a growable vector, so
     // this is NOT allocation-free -- leave it off on the real-time audio
     // path; only the metrics harness turns it on.
     bool collect_stats = false;

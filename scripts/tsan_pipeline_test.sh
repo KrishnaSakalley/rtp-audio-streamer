@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GATE (PLAN.md Phase 6): a ThreadSanitizer build must run the full
+# Check: a ThreadSanitizer build must run the full
 # threaded pipeline clean -- no reported data race. Only registered as a
 # CTest when the build was configured with -DRTP_ENABLE_TSAN=ON. Content
 # fidelity isn't checked here (TSan's instrumentation overhead can itself
