@@ -9,14 +9,12 @@ compile_commands.json
 *.out
 *.log
 .cache/
+
+# Editor and tool directories
 .vscode/
 .idea/
 .claude/
-.claude/settings.local.json
 
-# Local working notes — not part of the shipped project
-CLAUDE.md
-PLAN.md
-LEARNING.md
-LEARNING2.md
-docs/NOTES.md
+# Local working notes and scratch files, not part of the shipped project
+notes/
+scratch/
