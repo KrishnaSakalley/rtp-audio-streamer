@@ -36,34 +36,37 @@ void print_usage(const char* argv0) {
 }
 
 bool parse_args(int argc, char** argv, Config& cfg) {
+  // argv[++i] (an expression, not a bare statement) matches the idiom used
+  // in sender.cpp/receiver.cpp -- Clang's -Wfor-loop-analysis flags a naked
+  // `++i;` statement in the loop body as a suspicious double-increment even
+  // when (as here) it's intentional, but doesn't flag the same increment
+  // folded into an expression.
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
     if (i + 1 >= argc) {
       return false;
     }
-    std::string value = argv[i + 1];
     if (arg == "--listen") {
-      cfg.listen_port = static_cast<uint16_t>(std::atoi(value.c_str()));
+      cfg.listen_port = static_cast<uint16_t>(std::atoi(argv[++i]));
     } else if (arg == "--forward") {
-      cfg.forward_port = static_cast<uint16_t>(std::atoi(value.c_str()));
+      cfg.forward_port = static_cast<uint16_t>(std::atoi(argv[++i]));
     } else if (arg == "--forward-host") {
-      cfg.forward_host = value;
+      cfg.forward_host = argv[++i];
     } else if (arg == "--loss") {
-      cfg.loss = std::atof(value.c_str());
+      cfg.loss = std::atof(argv[++i]);
     } else if (arg == "--reorder") {
-      cfg.reorder = std::atof(value.c_str());
+      cfg.reorder = std::atof(argv[++i]);
     } else if (arg == "--jitter") {
-      cfg.jitter_ms = std::atoi(value.c_str());
+      cfg.jitter_ms = std::atoi(argv[++i]);
     } else if (arg == "--dup") {
-      cfg.dup = std::atof(value.c_str());
+      cfg.dup = std::atof(argv[++i]);
     } else if (arg == "--seed") {
-      cfg.seed = static_cast<unsigned>(std::atoi(value.c_str()));
+      cfg.seed = static_cast<unsigned>(std::atoi(argv[++i]));
     } else if (arg == "--idle-timeout-ms") {
-      cfg.idle_timeout_ms = std::atoi(value.c_str());
+      cfg.idle_timeout_ms = std::atoi(argv[++i]);
     } else {
       return false;
     }
-    ++i;
   }
   return true;
 }
