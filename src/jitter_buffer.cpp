@@ -9,7 +9,7 @@
 
 namespace rtp::jitter {
 
-JitterBuffer::JitterBuffer() = default;
+JitterBuffer::JitterBuffer(Options options) : options_(options) {}
 
 void JitterBuffer::update_jitter_estimate(uint32_t rtp_timestamp, uint32_t arrival_samples) {
   if (have_prev_arrival_) {
@@ -30,6 +30,9 @@ void JitterBuffer::update_jitter_estimate(uint32_t rtp_timestamp, uint32_t arriv
     // a very jittery one can't balloon latency past kMaxTargetMs.
     int target = static_cast<int>(4.0 * jitter_ms);
     target_depth_ms_ = std::clamp(target, kMinTargetMs, kMaxTargetMs);
+    if (options_.collect_stats) {
+      target_depth_history_ms_.push_back(target_depth_ms_);
+    }
   }
   prev_rtp_timestamp_ = rtp_timestamp;
   prev_arrival_samples_ = arrival_samples;
@@ -88,6 +91,7 @@ void JitterBuffer::push(uint16_t sequence_number, uint32_t rtp_timestamp, uint8_
   slot.sequence_number = sequence_number;
   slot.payload_type = payload_type;
   slot.payload_len = static_cast<uint16_t>(std::min(payload_len, sizeof(slot.payload)));
+  slot.arrival_samples = arrival_samples;
   std::memcpy(slot.payload, payload, slot.payload_len);
 }
 
@@ -127,7 +131,8 @@ void JitterBuffer::decode_slot(const Slot& slot, int16_t out[rtp::audio::kFrameS
 void JitterBuffer::conceal(int16_t out[rtp::audio::kFrameSamples]) {
   counts_.concealed += 1;
 
-  if (!have_last_real_frame_ || consecutive_concealments_ >= kMaxConsecutiveConcealments) {
+  if (options_.disable_plc_fade || !have_last_real_frame_ ||
+      consecutive_concealments_ >= kMaxConsecutiveConcealments) {
     std::fill(out, out + rtp::audio::kFrameSamples, static_cast<int16_t>(0));
     return;
   }
@@ -176,6 +181,10 @@ bool JitterBuffer::try_pull_due_frame(uint32_t now_samples, int16_t out[rtp::aud
 
   if (slot.occupied && slot.sequence_number == seq) {
     decode_slot(slot, out);
+    if (options_.collect_stats) {
+      uint32_t latency_samples = now_samples - slot.arrival_samples;
+      latency_samples_ms_.push_back(latency_samples * 1000 / rtp::audio::kSampleRateHz);
+    }
     slot.occupied = false;
     consecutive_concealments_ = 0;
     have_last_real_frame_ = true;

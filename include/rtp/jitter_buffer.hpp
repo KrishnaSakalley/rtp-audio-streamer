@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace rtp::jitter {
 
@@ -41,7 +42,26 @@ struct Counts {
 // writer, eventually a sound card) just consumes what it produces.
 class JitterBuffer {
  public:
-  JitterBuffer();
+  struct Options {
+    // Records per-frame playout latency and target-depth history for
+    // offline analysis (Phase 7 metrics). Backed by a growable vector, so
+    // this is NOT allocation-free -- leave it off on the real-time audio
+    // path; only the metrics harness turns it on.
+    bool collect_stats = false;
+
+    // Conceals with plain silence instead of a faded repeat. Exists so the
+    // demo assets can show "PLC off" vs. "PLC on" side by side; counters
+    // (lost/concealed) behave identically either way.
+    bool disable_plc_fade = false;
+  };
+
+  // The Options default can't be spelled `Options options = {}` inline
+  // here: a nested class's default member initializers aren't "complete"
+  // from the enclosing class's own member-function default-argument
+  // context, so GCC/Clang reject that form. A delegating default
+  // constructor sidesteps it.
+  JitterBuffer() : JitterBuffer(Options{}) {}
+  explicit JitterBuffer(Options options);
 
   // Feeds one received, parsed RTP packet in. `arrival_samples` is the
   // receiver's local clock at the moment of receipt, expressed in RTP
@@ -73,12 +93,21 @@ class JitterBuffer {
   int target_depth_ms() const { return target_depth_ms_; }
   const Counts& counts() const { return counts_; }
 
+  // Empty unless Options::collect_stats was set. latency_samples_ms() holds
+  // one entry per real (non-concealed) frame played: how long it sat
+  // buffered between arrival and playout. target_depth_history_ms() holds
+  // one entry per jitter estimate update, showing how the adaptive target
+  // moved over the course of the stream.
+  const std::vector<uint32_t>& latency_samples_ms() const { return latency_samples_ms_; }
+  const std::vector<int>& target_depth_history_ms() const { return target_depth_history_ms_; }
+
  private:
   struct Slot {
     bool occupied = false;
     uint16_t sequence_number = 0;
     uint8_t payload_type = 0;
     uint16_t payload_len = 0;
+    uint32_t arrival_samples = 0;
     uint8_t payload[512];  // largest real payload is 320B raw PCM; generous headroom
   };
 
@@ -111,6 +140,10 @@ class JitterBuffer {
   bool stream_ended_ = false;
 
   Counts counts_;
+
+  Options options_;
+  std::vector<uint32_t> latency_samples_ms_;
+  std::vector<int> target_depth_history_ms_;
 };
 
 }  // namespace rtp::jitter

@@ -60,6 +60,9 @@ add_test(NAME underrun_free_60s_run
                  $<TARGET_FILE:gen_test_tone> $<TARGET_FILE:rtp_sender> $<TARGET_FILE:rtp_receiver>)
 set_tests_properties(underrun_free_60s_run PROPERTIES TIMEOUT 90)
 
+add_test(NAME metrics_and_demo_assets_present
+         COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/check_metrics_test.sh)
+
 if(RTP_ENABLE_TSAN)
   add_test(NAME tsan_clean_threaded_pipeline
            COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/tsan_pipeline_test.sh

@@ -7,6 +7,7 @@
 
 #include <time.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -21,7 +22,41 @@
 namespace {
 
 void print_usage(const char* argv0) {
-  std::fprintf(stderr, "usage: %s <output.wav> [--port P] [--idle-timeout-ms N]\n", argv0);
+  std::fprintf(stderr,
+                "usage: %s <output.wav> [--port P] [--idle-timeout-ms N] [--collect-stats] "
+                "[--no-plc]\n",
+                argv0);
+}
+
+// Sorts a copy of `values` and returns the element at percentile `p`
+// (0.0-1.0). Metrics-only helper -- not on the audio path.
+double percentile(std::vector<uint32_t> values, double p) {
+  if (values.empty()) {
+    return 0.0;
+  }
+  std::sort(values.begin(), values.end());
+  size_t idx = static_cast<size_t>(p * static_cast<double>(values.size() - 1));
+  return static_cast<double>(values[idx]);
+}
+
+double mean_of(const std::vector<int>& values) {
+  if (values.empty()) {
+    return 0.0;
+  }
+  double sum = 0.0;
+  for (int v : values) {
+    sum += v;
+  }
+  return sum / static_cast<double>(values.size());
+}
+
+double percentile_int(std::vector<int> values, double p) {
+  if (values.empty()) {
+    return 0.0;
+  }
+  std::sort(values.begin(), values.end());
+  size_t idx = static_cast<size_t>(p * static_cast<double>(values.size() - 1));
+  return static_cast<double>(values[idx]);
 }
 
 // Receive thread's socket poll granularity -- short enough that idle
@@ -69,6 +104,8 @@ int main(int argc, char** argv) {
   std::string output_path = argv[1];
   uint16_t port = 5004;
   int idle_timeout_ms = 500;
+  bool collect_stats = false;
+  bool no_plc = false;
 
   for (int i = 2; i < argc; ++i) {
     std::string arg = argv[i];
@@ -76,6 +113,10 @@ int main(int argc, char** argv) {
       port = static_cast<uint16_t>(std::atoi(argv[++i]));
     } else if (arg == "--idle-timeout-ms" && i + 1 < argc) {
       idle_timeout_ms = std::atoi(argv[++i]);
+    } else if (arg == "--collect-stats") {
+      collect_stats = true;
+    } else if (arg == "--no-plc") {
+      no_plc = true;
     } else {
       print_usage(argv[0]);
       return 1;
@@ -90,7 +131,10 @@ int main(int argc, char** argv) {
     timespec process_start{};
     clock_gettime(CLOCK_MONOTONIC, &process_start);
 
-    rtp::jitter::JitterBuffer jbuf;
+    rtp::jitter::JitterBuffer::Options jbuf_options;
+    jbuf_options.collect_stats = collect_stats;
+    jbuf_options.disable_plc_fade = no_plc;
+    rtp::jitter::JitterBuffer jbuf(jbuf_options);
     // JitterBuffer has no internal synchronization of its own (it's
     // exercised single-threaded by its unit tests); this mutex is what
     // makes push() (receive thread) and try_pull_due_frame() /
@@ -208,10 +252,16 @@ int main(int argc, char** argv) {
 
     rtp::jitter::Counts counts;
     int target_depth_ms;
+    std::vector<uint32_t> latency_ms;
+    std::vector<int> depth_history_ms;
     {
       std::lock_guard<std::mutex> lock(jbuf_mutex);
       counts = jbuf.counts();
       target_depth_ms = jbuf.target_depth_ms();
+      if (collect_stats) {
+        latency_ms = jbuf.latency_samples_ms();
+        depth_history_ms = jbuf.target_depth_history_ms();
+      }
     }
     std::fprintf(stderr,
                  "wrote %zu samples to %s (target_depth_ms=%d received=%llu lost=%llu "
@@ -225,6 +275,14 @@ int main(int argc, char** argv) {
                  static_cast<unsigned long long>(counts.concealed),
                  static_cast<unsigned long long>(counts.duplicate), malformed_dropped,
                  static_cast<unsigned long long>(underruns.load()));
+
+    if (collect_stats) {
+      std::fprintf(stderr,
+                   "STATS latency_median_ms=%.1f latency_p95_ms=%.1f depth_mean_ms=%.1f "
+                   "depth_p95_ms=%.1f\n",
+                   percentile(latency_ms, 0.5), percentile(latency_ms, 0.95),
+                   mean_of(depth_history_ms), percentile_int(depth_history_ms, 0.95));
+    }
   } catch (const std::exception& e) {
     std::fprintf(stderr, "%s: %s\n", argv[0], e.what());
     return 1;
